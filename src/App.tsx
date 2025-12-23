@@ -13,6 +13,7 @@ import VoiceInterview from "./pages/VoiceInterview";
 import MockSessions from "./pages/MockSessions";
 import Performance from "./pages/Performance";
 import Settings from "./pages/Settings";
+import Onboarding from "./pages/Onboarding";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -28,6 +29,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/onboarding" element={<Onboarding />} />
             <Route element={<DashboardLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/questions" element={<Questions />} />

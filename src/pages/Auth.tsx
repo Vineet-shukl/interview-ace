@@ -43,7 +43,13 @@ const Auth = () => {
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      // Check if user has completed onboarding
+      const onboardingData = localStorage.getItem(`onboarding_${user.id}`);
+      if (onboardingData) {
+        navigate('/dashboard');
+      } else {
+        navigate('/onboarding');
+      }
     }
   }, [user, navigate]);
 
@@ -79,7 +85,9 @@ const Auth = () => {
             title: "Welcome back!",
             description: "You have successfully signed in.",
           });
-          navigate('/dashboard');
+          // Check onboarding status
+          const onboardingData = localStorage.getItem(`onboarding_${user?.id}`);
+          navigate(onboardingData ? '/dashboard' : '/onboarding');
         }
       } else {
         if (!acceptedTerms) {
@@ -117,9 +125,9 @@ const Auth = () => {
         } else {
           toast({
             title: "Account created!",
-            description: "Welcome to InterVue. Let's ace your interviews!",
+            description: "Welcome to InterVue. Let's set up your profile!",
           });
-          navigate('/dashboard');
+          navigate('/onboarding');
         }
       }
     } catch (err) {
