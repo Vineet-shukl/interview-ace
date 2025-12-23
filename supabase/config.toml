@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.send-invite-notification]
 verify_jwt = false
+
+[functions.login-notification]
+verify_jwt = false
