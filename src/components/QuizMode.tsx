@@ -18,6 +18,7 @@ import {
   Award,
   Target,
   TrendingUp,
+  StopCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -470,8 +471,18 @@ export const QuizMode: React.FC<QuizModeProps> = ({
           </div>
         </div>
 
-        <div className="text-sm text-muted-foreground">
-          Question {currentIndex + 1} of {filteredQuestions.length}
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-muted-foreground">
+            Question {currentIndex + 1} of {filteredQuestions.length}
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={completeQuiz}
+          >
+            <StopCircle className="w-4 h-4 mr-2" />
+            End Test
+          </Button>
         </div>
       </div>
 
