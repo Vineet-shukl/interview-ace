@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import BentoCard from '@/components/dashboard/BentoCard';
 import ProgressRing from '@/components/dashboard/ProgressRing';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import {
   Mic,
   Video,
@@ -20,6 +22,11 @@ import {
   BarChart3,
   Users,
   Award,
+  Briefcase,
+  Rocket,
+  Brain,
+  Code,
+  AlertCircle,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -30,6 +37,51 @@ interface DashboardStats {
   questionsAnswered: number;
   weeklyGoal: number;
 }
+
+interface OnboardingData {
+  goal: string;
+  industry: string;
+  experience: string;
+  focusAreas: string[];
+  practiceFrequency: string;
+  sessionDuration: number;
+  skipped?: boolean;
+  completedAt?: string;
+}
+
+interface GoalProgress {
+  sessionsTarget: number;
+  sessionsCompleted: number;
+  hoursTarget: number;
+  hoursCompleted: number;
+  scoreTarget: number;
+  currentScore: number;
+}
+
+const goalLabels: Record<string, string> = {
+  'new-job': 'Land a new job',
+  'career-switch': 'Switch careers',
+  'promotion': 'Get promoted',
+  'practice': 'General practice',
+};
+
+const industryLabels: Record<string, string> = {
+  'tech': 'Technology',
+  'finance': 'Finance',
+  'consulting': 'Consulting',
+  'healthcare': 'Healthcare',
+  'marketing': 'Marketing',
+  'other': 'General',
+};
+
+const focusAreaLabels: Record<string, { label: string; icon: React.ElementType }> = {
+  'behavioral': { label: 'Behavioral Questions', icon: Users },
+  'technical': { label: 'Technical Skills', icon: Code },
+  'case-study': { label: 'Case Studies', icon: Brain },
+  'communication': { label: 'Communication', icon: Sparkles },
+  'leadership': { label: 'Leadership', icon: Target },
+  'problem-solving': { label: 'Problem Solving', icon: Rocket },
+};
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -44,6 +96,26 @@ const Dashboard = () => {
   });
   const [recentSessions, setRecentSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
+  const [goalProgress, setGoalProgress] = useState<GoalProgress>({
+    sessionsTarget: 10,
+    sessionsCompleted: 0,
+    hoursTarget: 5,
+    hoursCompleted: 0,
+    scoreTarget: 8,
+    currentScore: 0,
+  });
+  const [recommendedQuestions, setRecommendedQuestions] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Load onboarding data
+    const savedOnboarding = localStorage.getItem(`onboarding_${user.id}`);
+    if (savedOnboarding) {
+      setOnboardingData(JSON.parse(savedOnboarding));
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -55,11 +127,10 @@ const Dashboard = () => {
           .from('interview_sessions')
           .select('*')
           .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
+          .order('created_at', { ascending: false });
 
         if (sessions) {
-          setRecentSessions(sessions);
+          setRecentSessions(sessions.slice(0, 5));
           const completed = sessions.filter((s) => s.status === 'completed');
           const totalDuration = sessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0);
           const avgScore = completed.length > 0
@@ -79,6 +150,57 @@ const Dashboard = () => {
             questionsAnswered: responsesCount || 0,
             weeklyGoal: 75,
           });
+
+          // Update goal progress
+          setGoalProgress({
+            sessionsTarget: 10,
+            sessionsCompleted: completed.length,
+            hoursTarget: 5,
+            hoursCompleted: Math.round(totalDuration / 60 * 10) / 10,
+            scoreTarget: 8,
+            currentScore: Math.round(avgScore * 10) / 10,
+          });
+        }
+
+        // Fetch recommended questions based on onboarding
+        const savedOnboarding = localStorage.getItem(`onboarding_${user.id}`);
+        if (savedOnboarding) {
+          const onboarding: OnboardingData = JSON.parse(savedOnboarding);
+          
+          let query = supabase
+            .from('interview_questions')
+            .select('*, question_categories(name, color, icon)')
+            .limit(4);
+
+          // Filter by industry if available
+          if (onboarding.industry && onboarding.industry !== 'other') {
+            query = query.eq('industry', onboarding.industry);
+          }
+
+          // Filter by difficulty based on experience
+          if (onboarding.experience) {
+            const difficultyMap: Record<string, string> = {
+              'student': 'easy',
+              'junior': 'easy',
+              'mid': 'medium',
+              'senior': 'hard',
+              'executive': 'hard',
+            };
+            query = query.eq('difficulty', difficultyMap[onboarding.experience] || 'medium');
+          }
+
+          const { data: questions } = await query;
+          
+          if (questions && questions.length > 0) {
+            setRecommendedQuestions(questions);
+          } else {
+            // Fallback to any questions if no matches
+            const { data: fallbackQuestions } = await supabase
+              .from('interview_questions')
+              .select('*, question_categories(name, color, icon)')
+              .limit(4);
+            setRecommendedQuestions(fallbackQuestions || []);
+          }
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -202,6 +324,113 @@ const Dashboard = () => {
           iconColor="magenta"
         />
       </div>
+
+      {/* Goal Progress Section */}
+      {onboardingData && !onboardingData.skipped && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-foreground">
+              Goal: {goalLabels[onboardingData.goal] || 'Interview Practice'}
+            </h2>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
+              Edit Goals
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="glass p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">Sessions Completed</span>
+                <span className="text-sm font-medium">{goalProgress.sessionsCompleted}/{goalProgress.sessionsTarget}</span>
+              </div>
+              <Progress value={(goalProgress.sessionsCompleted / goalProgress.sessionsTarget) * 100} className="h-2" />
+            </Card>
+            <Card className="glass p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">Practice Hours</span>
+                <span className="text-sm font-medium">{goalProgress.hoursCompleted}/{goalProgress.hoursTarget}h</span>
+              </div>
+              <Progress value={(goalProgress.hoursCompleted / goalProgress.hoursTarget) * 100} className="h-2" />
+            </Card>
+            <Card className="glass p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-muted-foreground">Average Score</span>
+                <span className="text-sm font-medium">{goalProgress.currentScore || '-'}/{goalProgress.scoreTarget}</span>
+              </div>
+              <Progress value={goalProgress.currentScore ? (goalProgress.currentScore / goalProgress.scoreTarget) * 100 : 0} className="h-2" />
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Onboarding Banner */}
+      {onboardingData?.skipped && (
+        <Card className="glass p-4 border-warning/30 bg-warning/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-warning" />
+              <div>
+                <p className="font-medium text-foreground">Complete your profile setup</p>
+                <p className="text-sm text-muted-foreground">Get personalized recommendations by finishing onboarding</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate('/onboarding')}>
+              Complete Setup
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Personalized Recommendations */}
+      {recommendedQuestions.length > 0 && onboardingData && !onboardingData.skipped && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">Recommended for You</h2>
+              <p className="text-sm text-muted-foreground">
+                Based on your {industryLabels[onboardingData.industry] || ''} focus
+                {onboardingData.focusAreas.length > 0 && ` and ${onboardingData.focusAreas.length} skill areas`}
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/questions')}>
+              View All
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {recommendedQuestions.map((question) => (
+              <Card 
+                key={question.id} 
+                className="glass p-4 hover:bg-card/80 transition-colors cursor-pointer"
+                onClick={() => navigate('/practice')}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <BookOpen className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground line-clamp-2">{question.question_text}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        question.difficulty === 'easy' ? 'bg-success/20 text-success' :
+                        question.difficulty === 'hard' ? 'bg-destructive/20 text-destructive' :
+                        'bg-warning/20 text-warning'
+                      }`}>
+                        {question.difficulty}
+                      </span>
+                      {question.question_categories && (
+                        <span className="text-xs text-muted-foreground">
+                          {question.question_categories.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="space-y-4">

@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
+  X,
 } from 'lucide-react';
 
 interface OnboardingData {
@@ -105,29 +106,36 @@ const Onboarding = () => {
     }
   };
 
-  const completeOnboarding = () => {
+  const completeOnboarding = (skipped = false) => {
     if (!user) return;
 
     // Save onboarding data to localStorage
     localStorage.setItem(`onboarding_${user.id}`, JSON.stringify({
       ...data,
+      skipped,
       completedAt: new Date().toISOString(),
     }));
 
-    // Save preferences for Settings page compatibility
-    localStorage.setItem(`preferences_${user.id}`, JSON.stringify({
-      emailNotifications: true,
-      practiceReminders: data.practiceFrequency === 'daily',
-      weeklyDigest: true,
-      feedbackAlerts: true,
-      defaultDifficulty: data.experience === 'senior' || data.experience === 'executive' ? 'hard' : 
-                         data.experience === 'mid' ? 'medium' : 'easy',
-      sessionDuration: data.sessionDuration,
-      autoRecordSessions: true,
-      showCheatingAlerts: true,
-    }));
+    // Save preferences for Settings page compatibility (only if not skipped)
+    if (!skipped && data.experience) {
+      localStorage.setItem(`preferences_${user.id}`, JSON.stringify({
+        emailNotifications: true,
+        practiceReminders: data.practiceFrequency === 'daily',
+        weeklyDigest: true,
+        feedbackAlerts: true,
+        defaultDifficulty: data.experience === 'senior' || data.experience === 'executive' ? 'hard' : 
+                           data.experience === 'mid' ? 'medium' : 'easy',
+        sessionDuration: data.sessionDuration,
+        autoRecordSessions: true,
+        showCheatingAlerts: true,
+      }));
+    }
 
     navigate('/dashboard');
+  };
+
+  const handleSkip = () => {
+    completeOnboarding(true);
   };
 
   const toggleFocusArea = (id: string) => {
@@ -380,7 +388,18 @@ const Onboarding = () => {
               </div>
               <span className="font-bold text-xl text-gradient">InterVue</span>
             </div>
-            <span className="text-sm text-muted-foreground">Step {step + 1} of {totalSteps}</span>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">Step {step + 1} of {totalSteps}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSkip}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Skip for now
+              </Button>
+            </div>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
