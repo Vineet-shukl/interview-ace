@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, Sparkles, ArrowRight, User, Mail, Lock, Loader2, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Sparkles, ArrowRight, User, Mail, Lock, Loader2, ArrowLeft, AlertCircle, X } from 'lucide-react';
 import { z } from 'zod';
 
 const signUpSchema = z.object({
@@ -25,7 +25,7 @@ const signInSchema = z.object({
 });
 
 const Auth = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isResetPassword, setIsResetPassword] = useState(false);
@@ -33,6 +33,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
   
   // Form fields
   const [fullName, setFullName] = useState('');
@@ -47,6 +48,39 @@ const Auth = () => {
   const { signIn, signUp, signInWithGoogle, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Check for OAuth errors in URL
+  useEffect(() => {
+    const error = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
+    
+    // Also check hash fragment for errors (some OAuth flows use hash)
+    const hash = window.location.hash;
+    const hashError = hash.includes('error=');
+    
+    if (error || hashError) {
+      let message = 'Authentication failed. Please try again.';
+      
+      if (errorDescription) {
+        const decoded = decodeURIComponent(errorDescription);
+        if (decoded.includes('invalid_client')) {
+          message = 'Google sign-in is temporarily unavailable. Please try email sign-in or contact support.';
+        } else if (decoded.includes('access_denied')) {
+          message = 'Sign-in was cancelled. Please try again.';
+        } else if (decoded.includes('Unable to exchange')) {
+          message = 'Unable to complete sign-in. Please try again or use email sign-in.';
+        } else {
+          message = decoded;
+        }
+      }
+      
+      setOauthError(message);
+      
+      // Clear the error params from URL
+      setSearchParams({});
+      window.history.replaceState({}, '', '/auth');
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     // Check if this is a password reset callback
@@ -398,6 +432,22 @@ const Auth = () => {
 
         {/* Auth Card */}
         <div className="glass rounded-3xl p-8 shadow-glass">
+          {/* OAuth Error Alert */}
+          {oauthError && (
+            <div className="mb-6 p-4 rounded-xl bg-destructive/10 border border-destructive/20 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-destructive font-medium">Sign-in Error</p>
+                <p className="text-sm text-destructive/80 mt-1">{oauthError}</p>
+              </div>
+              <button
+                onClick={() => setOauthError(null)}
+                className="text-destructive/60 hover:text-destructive transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
           {/* Google Sign-in Button */}
           <Button
             type="button"
