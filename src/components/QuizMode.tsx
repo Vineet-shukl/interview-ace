@@ -304,12 +304,17 @@ export const QuizMode: React.FC<QuizModeProps> = ({
   };
 
   const completeQuiz = async () => {
+    if (recognition && isRecording) {
+      recognition.stop();
+      setIsRecording(false);
+    }
+    
     setIsTimerRunning(false);
     setQuizComplete(true);
 
     if (sessionId) {
       try {
-        await supabase
+        const { error } = await supabase
           .from('interview_sessions')
           .update({
             status: 'completed',
@@ -317,9 +322,23 @@ export const QuizMode: React.FC<QuizModeProps> = ({
             duration_minutes: Math.ceil(timeElapsed / 60),
           })
           .eq('id', sessionId);
+        
+        if (error) {
+          console.error('Error completing session:', error);
+        } else {
+          toast({
+            title: 'Test Ended',
+            description: 'Your session has been saved.',
+          });
+        }
       } catch (error) {
         console.error('Error completing session:', error);
       }
+    } else {
+      toast({
+        title: 'Test Ended',
+        description: 'Session completed.',
+      });
     }
   };
 
