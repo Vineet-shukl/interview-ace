@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   User,
@@ -82,6 +83,9 @@ const Settings = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // Account deletion state
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -381,6 +385,46 @@ const Settings = () => {
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+
+    setDeletingAccount(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session');
+      }
+
+      const response = await supabase.functions.invoke('delete-account', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to delete account');
+      }
+
+      toast({
+        title: 'Account deleted',
+        description: 'Your account and all data have been permanently deleted.',
+      });
+
+      // Sign out and redirect
+      await signOut();
+    } catch (error: any) {
+      console.error('Error deleting account:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete account. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   if (loading) {
@@ -912,10 +956,42 @@ const Settings = () => {
                 <p className="text-sm text-muted-foreground">
                   Once you delete your account, there is no going back. Please be certain.
                 </p>
-                <Button variant="destructive" className="gap-2">
-                  <Trash2 className="w-4 h-4" />
-                  Delete Account
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="gap-2" disabled={deletingAccount}>
+                      {deletingAccount ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                      {deletingAccount ? 'Deleting...' : 'Delete Account'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your account
+                        and remove all your data including:
+                        <ul className="list-disc list-inside mt-2 space-y-1">
+                          <li>Your profile and preferences</li>
+                          <li>All interview sessions and responses</li>
+                          <li>Body language metrics and feedback</li>
+                          <li>Your profile photo and uploads</li>
+                        </ul>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteAccount}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Yes, delete my account
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </CardContent>
           </Card>
