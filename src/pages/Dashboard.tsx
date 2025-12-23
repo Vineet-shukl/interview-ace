@@ -275,16 +275,18 @@ const Dashboard = () => {
           <div className="flex items-center justify-center h-full min-h-[200px]">
             <div className="text-center space-y-6">
               <ProgressRing
-                progress={stats.weeklyGoal}
+                progress={stats.completedSessions > 0 ? Math.min(100, Math.round((stats.completedSessions / 10) * 100)) : 0}
                 size={180}
                 strokeWidth={12}
                 color="cyan"
-                label="Goal Complete"
+                label="Sessions"
               />
               <div className="space-y-2">
-                <p className="text-lg font-medium text-foreground">Keep up the momentum!</p>
+                <p className="text-lg font-medium text-foreground">
+                  {stats.completedSessions} sessions completed
+                </p>
                 <p className="text-sm text-muted-foreground">
-                  You're making great progress towards your weekly goal
+                  {stats.practiceHours} hours practiced • {stats.questionsAnswered} questions answered
                 </p>
               </div>
             </div>
