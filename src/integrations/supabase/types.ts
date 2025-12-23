@@ -308,6 +308,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_devices: {
+        Row: {
+          browser: string | null
+          created_at: string
+          device_fingerprint: string
+          device_name: string | null
+          id: string
+          ip_address: string | null
+          last_login_at: string
+          os: string | null
+          user_id: string
+        }
+        Insert: {
+          browser?: string | null
+          created_at?: string
+          device_fingerprint: string
+          device_name?: string | null
+          id?: string
+          ip_address?: string | null
+          last_login_at?: string
+          os?: string | null
+          user_id: string
+        }
+        Update: {
+          browser?: string | null
+          created_at?: string
+          device_fingerprint?: string
+          device_name?: string | null
+          id?: string
+          ip_address?: string | null
+          last_login_at?: string
+          os?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           auto_record_sessions: boolean
