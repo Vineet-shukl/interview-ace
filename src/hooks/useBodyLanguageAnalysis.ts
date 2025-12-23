@@ -51,8 +51,8 @@ export const useBodyLanguageAnalysis = (videoElement: HTMLVideoElement | null) =
     feedback: [],
   });
 
-  const poseRef = useRef<any>(null);
-  const cameraRef = useRef<any>(null);
+  const poseRef = useRef<unknown>(null);
+  const cameraRef = useRef<{ stop: () => void } | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   
   // Tracking for movement detection

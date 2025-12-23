@@ -8,9 +8,25 @@ const iconMap: Record<string, React.ElementType> = {
   Users: BookOpen, Code: Code, Crown: Crown, Lightbulb: Lightbulb, MessageSquare: MessageSquare, GitBranch: GitBranch,
 };
 
+interface Category {
+  id: string;
+  name: string;
+  icon?: string;
+  color?: string;
+}
+
+interface Question {
+  id: string;
+  question_text: string;
+  difficulty: string;
+  tips?: string;
+  category_id?: string;
+  question_categories?: { name: string; color?: string } | null;
+}
+
 const Questions = () => {
-  const [categories, setCategories] = useState<any[]>([]);
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
