@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Questions from "./pages/Questions";
+import VoiceInterview from "./pages/VoiceInterview";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import NotFound from "./pages/NotFound";
 
@@ -27,7 +28,7 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/questions" element={<Questions />} />
               <Route path="/practice" element={<Dashboard />} />
-              <Route path="/voice-interview" element={<Dashboard />} />
+              <Route path="/voice-interview" element={<VoiceInterview />} />
               <Route path="/mock-sessions" element={<Dashboard />} />
               <Route path="/performance" element={<Dashboard />} />
               <Route path="/settings" element={<Dashboard />} />
