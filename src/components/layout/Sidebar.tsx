@@ -9,6 +9,7 @@ import {
   Video,
   Calendar,
   BarChart3,
+  History,
   Settings,
   LogOut,
   Sparkles,
@@ -29,6 +30,7 @@ const navItems = [
   { icon: Video, label: 'Voice Interview', path: '/voice-interview' },
   { icon: Calendar, label: 'Mock Sessions', path: '/mock-sessions' },
   { icon: BarChart3, label: 'Performance', path: '/performance' },
+  { icon: History, label: 'Activity History', path: '/activity' },
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
