@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useBodyLanguageAnalysis } from '@/hooks/useBodyLanguageAnalysis';
+import BodyLanguageCoach from '@/components/BodyLanguageCoach';
 import {
   Mic,
   MicOff,
@@ -18,6 +20,7 @@ import {
   MessageSquare,
   Eye,
   Clock,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -61,7 +64,15 @@ const VoiceInterview = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize video stream
+  // Body language analysis
+  const { 
+    isAnalyzing: isBodyAnalyzing, 
+    metrics: bodyMetrics, 
+    startAnalysis: startBodyAnalysis,
+    stopAnalysis: stopBodyAnalysis 
+  } = useBodyLanguageAnalysis(videoRef.current);
+
+  // Initialize video stream and body language analysis
   useEffect(() => {
     if (isStarted && videoEnabled) {
       navigator.mediaDevices.getUserMedia({ video: true, audio: true })
@@ -69,6 +80,10 @@ const VoiceInterview = () => {
           mediaStreamRef.current = stream;
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
+            // Start body language analysis after video is ready
+            videoRef.current.onloadedmetadata = () => {
+              startBodyAnalysis();
+            };
           }
         })
         .catch((err) => {
@@ -85,8 +100,9 @@ const VoiceInterview = () => {
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach(track => track.stop());
       }
+      stopBodyAnalysis();
     };
-  }, [isStarted, videoEnabled]);
+  }, [isStarted, videoEnabled, startBodyAnalysis, stopBodyAnalysis]);
 
   // Duration timer
   useEffect(() => {
@@ -307,6 +323,11 @@ const VoiceInterview = () => {
     if (durationIntervalRef.current) {
       clearInterval(durationIntervalRef.current);
     }
+    stopBodyAnalysis();
+
+    // Calculate combined score including body language
+    const bodyScore = bodyMetrics.overallScore;
+    const combinedScore = Math.round((bodyScore * 0.3) + (Math.max(5, 10 - lookAwayCount * 0.5) * 10 * 0.7));
 
     // Save session to database
     if (user) {
@@ -318,7 +339,7 @@ const VoiceInterview = () => {
           duration_minutes: Math.ceil(duration / 60),
           started_at: new Date(Date.now() - duration * 1000).toISOString(),
           ended_at: new Date().toISOString(),
-          overall_score: Math.max(5, 10 - lookAwayCount * 0.5),
+          overall_score: combinedScore / 10,
         });
 
         if (error) console.error('Failed to save session:', error);
@@ -442,6 +463,12 @@ const VoiceInterview = () => {
             <MessageSquare className="w-4 h-4 text-neon-purple" />
             <span className="text-foreground">{questionCount} questions</span>
           </div>
+          {isBodyAnalyzing && (
+            <div className="glass rounded-xl px-4 py-2 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-neon-green" />
+              <span className="text-foreground font-mono">{bodyMetrics.overallScore}%</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -461,7 +488,7 @@ const VoiceInterview = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0">
         {/* Video Feed */}
         <div className="lg:col-span-2 glass rounded-2xl overflow-hidden relative">
           <video
@@ -471,6 +498,13 @@ const VoiceInterview = () => {
             playsInline
             className="w-full h-full object-cover"
           />
+          
+          {/* Body language feedback overlay */}
+          {isBodyAnalyzing && bodyMetrics.feedback[0] && bodyMetrics.feedback[0] !== 'Great body language! Keep it up' && (
+            <div className="absolute top-4 left-4 right-4 glass rounded-xl px-4 py-2 border border-warning/30 bg-warning/10">
+              <p className="text-sm text-warning">{bodyMetrics.feedback[0]}</p>
+            </div>
+          )}
           
           {/* Video overlay with current transcript */}
           {currentTranscript && (
@@ -490,8 +524,16 @@ const VoiceInterview = () => {
           )}
         </div>
 
+        {/* Body Language Coach Panel */}
+        <div className="lg:col-span-1 flex flex-col gap-4 min-h-0">
+          <BodyLanguageCoach 
+            metrics={bodyMetrics} 
+            isAnalyzing={isBodyAnalyzing} 
+          />
+        </div>
+
         {/* Chat/Transcript Panel */}
-        <div className="glass rounded-2xl flex flex-col overflow-hidden">
+        <div className="lg:col-span-1 glass rounded-2xl flex flex-col overflow-hidden min-h-0">
           <div className="p-4 border-b border-border">
             <h3 className="font-semibold text-foreground">Conversation</h3>
           </div>
