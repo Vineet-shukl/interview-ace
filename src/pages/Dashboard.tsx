@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,7 @@ import ProgressRing from '@/components/dashboard/ProgressRing';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import {
   Mic,
   Video,
@@ -117,6 +118,30 @@ const Dashboard = () => {
     }
   }, [user]);
 
+  // Calculate weekly session target from onboarding
+  const weeklySessionTarget = useMemo(() => {
+    if (!onboardingData || onboardingData.skipped) return 3; // default
+    const frequencyMap: Record<string, number> = {
+      'daily': 7,
+      '3-times': 3,
+      'weekly': 1,
+      'flexible': 2,
+    };
+    return frequencyMap[onboardingData.practiceFrequency] || 3;
+  }, [onboardingData]);
+
+  // Calculate sessions completed this week
+  const weeklySessionsCompleted = useMemo(() => {
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    
+    return recentSessions.filter(session => {
+      const sessionDate = new Date(session.created_at);
+      return session.status === 'completed' && isWithinInterval(sessionDate, { start: weekStart, end: weekEnd });
+    }).length;
+  }, [recentSessions]);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!user) return;
@@ -130,7 +155,7 @@ const Dashboard = () => {
           .order('created_at', { ascending: false });
 
         if (sessions) {
-          setRecentSessions(sessions.slice(0, 5));
+          setRecentSessions(sessions.slice(0, 20)); // Get more to calculate weekly
           const completed = sessions.filter((s) => s.status === 'completed');
           const totalDuration = sessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0);
           const avgScore = completed.length > 0
@@ -151,11 +176,23 @@ const Dashboard = () => {
             weeklyGoal: 75,
           });
 
-          // Update goal progress
+          // Update goal progress based on onboarding
+          const savedOnboarding = localStorage.getItem(`onboarding_${user.id}`);
+          const onboarding: OnboardingData | null = savedOnboarding ? JSON.parse(savedOnboarding) : null;
+          const frequencyMap: Record<string, number> = {
+            'daily': 7,
+            '3-times': 3,
+            'weekly': 1,
+            'flexible': 2,
+          };
+          const sessionsTarget = onboarding && !onboarding.skipped 
+            ? frequencyMap[onboarding.practiceFrequency] || 3 
+            : 10;
+
           setGoalProgress({
-            sessionsTarget: 10,
+            sessionsTarget,
             sessionsCompleted: completed.length,
-            hoursTarget: 5,
+            hoursTarget: onboarding?.sessionDuration ? Math.ceil((sessionsTarget * onboarding.sessionDuration) / 60) : 5,
             hoursCompleted: Math.round(totalDuration / 60 * 10) / 10,
             scoreTarget: 8,
             currentScore: Math.round(avgScore * 10) / 10,
@@ -275,15 +312,15 @@ const Dashboard = () => {
           <div className="flex items-center justify-center h-full min-h-[200px]">
             <div className="text-center space-y-6">
               <ProgressRing
-                progress={stats.completedSessions > 0 ? Math.min(100, Math.round((stats.completedSessions / 10) * 100)) : 0}
+                progress={weeklySessionTarget > 0 ? Math.min(100, Math.round((weeklySessionsCompleted / weeklySessionTarget) * 100)) : 0}
                 size={180}
                 strokeWidth={12}
                 color="cyan"
-                label="Sessions"
+                label="This Week"
               />
               <div className="space-y-2">
                 <p className="text-lg font-medium text-foreground">
-                  {stats.completedSessions} sessions completed
+                  {weeklySessionsCompleted} of {weeklySessionTarget} sessions
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {stats.practiceHours} hours practiced • {stats.questionsAnswered} questions answered
@@ -468,7 +505,7 @@ const Dashboard = () => {
 
         {recentSessions.length > 0 ? (
           <div className="grid gap-3">
-            {recentSessions.map((session) => {
+            {recentSessions.slice(0, 5).map((session) => {
               const sessionPath = session.session_type === 'voice' 
                 ? '/voice-interview' 
                 : session.session_type === 'mock' 
