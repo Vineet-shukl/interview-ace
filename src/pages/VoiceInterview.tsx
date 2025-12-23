@@ -24,8 +24,12 @@ import {
   Clock,
   Activity,
   Shield,
+  Settings,
+  Play,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -54,6 +58,13 @@ const VoiceInterview = () => {
   // Video state
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [micEnabled, setMicEnabled] = useState(true);
+  
+  // Voice settings
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceUri, setSelectedVoiceUri] = useState<string>('');
+  const [speechRate, setSpeechRate] = useState(1.0);
+  const [speechPitch, setSpeechPitch] = useState(1.0);
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
   
   // Metrics
   const [duration, setDuration] = useState(0);
@@ -95,6 +106,36 @@ const VoiceInterview = () => {
       }
     },
   });
+
+  // Load available voices
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      // Filter to English voices and sort by name
+      const englishVoices = voices
+        .filter(voice => voice.lang.startsWith('en'))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      setAvailableVoices(englishVoices);
+      
+      // Set default voice if not selected
+      if (!selectedVoiceUri && englishVoices.length > 0) {
+        // Prefer Google voices, then any US English
+        const preferredVoice = englishVoices.find(v => v.name.includes('Google')) 
+          || englishVoices.find(v => v.lang === 'en-US')
+          || englishVoices[0];
+        if (preferredVoice) {
+          setSelectedVoiceUri(preferredVoice.voiceURI);
+        }
+      }
+    };
+
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, [selectedVoiceUri]);
 
   // Sync body language metrics with cheating detection
   useEffect(() => {
@@ -316,22 +357,22 @@ const VoiceInterview = () => {
 
       const utterance = new SpeechSynthesisUtterance(text);
       
-      // Get available voices and select a good English voice
+      // Use selected voice or find a good default
       const voices = window.speechSynthesis.getVoices();
-      const englishVoice = voices.find(
-        voice => voice.lang.startsWith('en') && voice.name.includes('Google')
-      ) || voices.find(
-        voice => voice.lang.startsWith('en-US')
-      ) || voices.find(
-        voice => voice.lang.startsWith('en')
-      );
+      const selectedVoice = voices.find(v => v.voiceURI === selectedVoiceUri);
       
-      if (englishVoice) {
-        utterance.voice = englishVoice;
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      } else {
+        // Fallback to first English voice
+        const englishVoice = voices.find(v => v.lang.startsWith('en'));
+        if (englishVoice) {
+          utterance.voice = englishVoice;
+        }
       }
       
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
+      utterance.rate = speechRate;
+      utterance.pitch = speechPitch;
       utterance.volume = 1.0;
 
       utterance.onend = () => {
@@ -349,6 +390,26 @@ const VoiceInterview = () => {
       console.error('TTS error:', error);
       setIsSpeaking(false);
     }
+  };
+
+  // Preview selected voice
+  const previewVoice = () => {
+    if (!('speechSynthesis' in window)) return;
+    
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance("Hello, I'll be your interviewer today. Let's get started.");
+    
+    const voices = window.speechSynthesis.getVoices();
+    const selectedVoice = voices.find(v => v.voiceURI === selectedVoiceUri);
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+    
+    utterance.rate = speechRate;
+    utterance.pitch = speechPitch;
+    utterance.volume = 1.0;
+    
+    window.speechSynthesis.speak(utterance);
   };
 
   // End interview
@@ -455,6 +516,90 @@ const VoiceInterview = () => {
               <p className="text-sm text-foreground font-medium">Video Analysis</p>
               <p className="text-xs text-muted-foreground">Body language</p>
             </div>
+          </div>
+
+          {/* Voice Settings */}
+          <div className="glass rounded-xl p-4 text-left">
+            <button 
+              onClick={() => setShowVoiceSettings(!showVoiceSettings)}
+              className="w-full flex items-center justify-between text-foreground"
+            >
+              <div className="flex items-center gap-2">
+                <Settings className="w-5 h-5 text-neon-cyan" />
+                <span className="font-medium">Voice Settings</span>
+              </div>
+              <span className="text-muted-foreground text-sm">
+                {showVoiceSettings ? 'Hide' : 'Customize'}
+              </span>
+            </button>
+
+            {showVoiceSettings && (
+              <div className="mt-4 space-y-4 animate-fade-in">
+                {/* Voice Selection */}
+                <div>
+                  <label className="text-sm text-muted-foreground mb-2 block">
+                    Interviewer Voice
+                  </label>
+                  <div className="flex gap-2">
+                    <Select 
+                      value={selectedVoiceUri} 
+                      onValueChange={setSelectedVoiceUri}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select a voice" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-64">
+                        {availableVoices.map((voice) => (
+                          <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
+                            {voice.name} ({voice.lang})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      variant="glass" 
+                      size="icon"
+                      onClick={previewVoice}
+                      title="Preview voice"
+                    >
+                      <Play className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Speech Rate */}
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <label className="text-muted-foreground">Speech Rate</label>
+                    <span className="text-foreground font-mono">{speechRate.toFixed(1)}x</span>
+                  </div>
+                  <Slider
+                    value={[speechRate]}
+                    onValueChange={([value]) => setSpeechRate(value)}
+                    min={0.5}
+                    max={2}
+                    step={0.1}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Pitch */}
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <label className="text-muted-foreground">Pitch</label>
+                    <span className="text-foreground font-mono">{speechPitch.toFixed(1)}</span>
+                  </div>
+                  <Slider
+                    value={[speechPitch]}
+                    onValueChange={([value]) => setSpeechPitch(value)}
+                    min={0.5}
+                    max={2}
+                    step={0.1}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="bg-warning/10 border border-warning/20 rounded-xl p-4 flex items-start gap-3 text-left">
