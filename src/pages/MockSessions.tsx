@@ -155,6 +155,23 @@ const MockSessions = () => {
 
       if (inviteError) throw inviteError;
 
+      // Send email notification to invitee
+      try {
+        await supabase.functions.invoke('send-invite-notification', {
+          body: {
+            inviterEmail: user.email,
+            inviteeEmail: inviteeEmail.toLowerCase().trim(),
+            action: 'invited',
+            scheduledAt,
+            inviterName: user.email?.split('@')[0],
+          },
+        });
+        console.log('Invite notification sent');
+      } catch (notifyError) {
+        console.error('Failed to send invite notification:', notifyError);
+        // Don't block on notification failure
+      }
+
       toast({
         title: 'Invitation Sent!',
         description: `Mock interview invite sent to ${inviteeEmail}.`,
