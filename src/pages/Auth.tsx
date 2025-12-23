@@ -141,29 +141,6 @@ const Auth = () => {
     }
   };
 
-  const handleDemoLogin = async () => {
-    setLoading(true);
-    const { error } = await signIn('demo_view@intervue.app', 'trying');
-    if (error) {
-      // If demo account doesn't exist, create it
-      const { error: signUpError } = await signUp('demo_view@intervue.app', 'trying', { 
-        full_name: 'Demo User', 
-        username: 'demo_view' 
-      });
-      if (!signUpError) {
-        const { error: loginError } = await signIn('demo_view@intervue.app', 'trying');
-        if (!loginError) {
-          toast({ title: "Demo mode activated!", description: "Explore InterVue features." });
-          navigate('/dashboard');
-        }
-      }
-    } else {
-      toast({ title: "Demo mode activated!", description: "Explore InterVue features." });
-      navigate('/dashboard');
-    }
-    setLoading(false);
-  };
-
   return (
     <div className="min-h-screen bg-background bg-holographic flex items-center justify-center p-4 relative overflow-hidden">
       {/* Animated background elements */}
@@ -317,20 +294,6 @@ const Auth = () => {
             >
               {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Log in'}
             </button>
-          </div>
-
-          {/* Demo Login */}
-          <div className="mt-6 pt-6 border-t border-border/50">
-            <Button
-              type="button"
-              variant="glass"
-              className="w-full"
-              onClick={handleDemoLogin}
-              disabled={loading}
-            >
-              <Sparkles className="w-4 h-4" />
-              Try Demo (demo_view / trying)
-            </Button>
           </div>
         </div>
       </div>
