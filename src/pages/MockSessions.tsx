@@ -182,6 +182,44 @@ const MockSessions = () => {
     }
   };
 
+  // Send notification email
+  const sendNotification = async (invite: MockInvite, action: 'accepted' | 'declined') => {
+    try {
+      // Get inviter's email from profiles
+      const { data: inviterProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('user_id', invite.inviter_id)
+        .maybeSingle();
+
+      if (!inviterProfile?.email) {
+        console.log('Could not find inviter email, skipping notification');
+        return;
+      }
+
+      // Get session details for scheduled time
+      const { data: session } = await supabase
+        .from('interview_sessions')
+        .select('scheduled_at')
+        .eq('id', invite.session_id)
+        .maybeSingle();
+
+      await supabase.functions.invoke('send-invite-notification', {
+        body: {
+          inviterEmail: inviterProfile.email,
+          inviteeEmail: user?.email || invite.invitee_email,
+          action,
+          scheduledAt: session?.scheduled_at,
+        },
+      });
+
+      console.log('Notification sent successfully');
+    } catch (error) {
+      console.error('Failed to send notification:', error);
+      // Don't throw - notification failure shouldn't block the action
+    }
+  };
+
   // Accept invite
   const handleAcceptInvite = async (invite: MockInvite) => {
     try {
@@ -201,6 +239,9 @@ const MockSessions = () => {
       setReceivedInvites((prev) =>
         prev.map((i) => (i.id === invite.id ? { ...i, status: 'accepted' } : i))
       );
+
+      // Send notification email
+      sendNotification(invite, 'accepted');
 
       toast({
         title: 'Invite Accepted!',
@@ -229,6 +270,9 @@ const MockSessions = () => {
       setReceivedInvites((prev) =>
         prev.map((i) => (i.id === invite.id ? { ...i, status: 'declined' } : i))
       );
+
+      // Send notification email
+      sendNotification(invite, 'declined');
 
       toast({
         title: 'Invite Declined',
