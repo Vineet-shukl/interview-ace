@@ -187,12 +187,13 @@ const MockSessions = () => {
       // Refresh data
       setSessions((prev) => [...prev, sessionData]);
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating session:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create mock session.';
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to create mock session.',
+        description: errorMessage,
       });
     } finally {
       setIsCreating(false);

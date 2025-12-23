@@ -97,7 +97,7 @@ const Dashboard = () => {
     questionsAnswered: 0,
     weeklyGoal: 75,
   });
-  const [recentSessions, setRecentSessions] = useState<any[]>([]);
+  const [recentSessions, setRecentSessions] = useState<{ id: string; created_at: string; status: string; session_type: string; overall_score?: number | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
   const [goalProgress, setGoalProgress] = useState<GoalProgress>({
@@ -108,7 +108,7 @@ const Dashboard = () => {
     scoreTarget: 8,
     currentScore: 0,
   });
-  const [recommendedQuestions, setRecommendedQuestions] = useState<any[]>([]);
+  const [recommendedQuestions, setRecommendedQuestions] = useState<{ id: string; question_text: string; difficulty: string; question_categories?: { name: string; color?: string; icon?: string } | null }[]>([]);
   const [goalsEditorOpen, setGoalsEditorOpen] = useState(false);
 
   useEffect(() => {

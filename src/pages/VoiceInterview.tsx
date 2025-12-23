@@ -36,8 +36,45 @@ interface Message {
   content: string;
 }
 
-// Check for SpeechRecognition support
-const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+// SpeechRecognition types for browser API
+interface SpeechRecognitionResultItem {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionResult {
+  readonly length: number;
+  [index: number]: SpeechRecognitionResultItem;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionResultListCustom {
+  readonly length: number;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionEventCustom extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultListCustom;
+}
+
+interface SpeechRecognitionErrorEventCustom extends Event {
+  error: string;
+}
+
+interface SpeechRecognitionInstance {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventCustom) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventCustom) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
 const VoiceInterview = () => {
   const { user } = useAuth();
@@ -74,7 +111,7 @@ const VoiceInterview = () => {
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -195,7 +232,7 @@ const VoiceInterview = () => {
 
   // Initialize speech recognition
   const initSpeechRecognition = useCallback(() => {
-    if (!SpeechRecognition) {
+    if (!SpeechRecognitionAPI) {
       toast({
         variant: 'destructive',
         title: 'Not Supported',
@@ -204,12 +241,12 @@ const VoiceInterview = () => {
       return null;
     }
 
-    const recognition = new SpeechRecognition();
+    const recognition = new SpeechRecognitionAPI() as SpeechRecognitionInstance;
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEventCustom) => {
       let interimTranscript = '';
       let finalTranscript = '';
 
@@ -229,7 +266,7 @@ const VoiceInterview = () => {
       }
     };
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEventCustom) => {
       console.error('Speech recognition error:', event.error);
       if (event.error !== 'no-speech') {
         setIsListening(false);
@@ -243,7 +280,7 @@ const VoiceInterview = () => {
     };
 
     return recognition;
-  }, [isListening, isSpeaking, isProcessing]);
+  }, [isListening, isSpeaking, isProcessing, toast]);
 
   // Start interview
   const startInterview = async () => {
@@ -273,12 +310,13 @@ const VoiceInterview = () => {
         setIsListening(true);
       }
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to start interview:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Could not start the interview.';
       toast({
         variant: 'destructive',
         title: 'Failed to Start',
-        description: error.message || 'Could not start the interview.',
+        description: errorMessage,
       });
     } finally {
       setIsConnecting(false);
@@ -322,12 +360,13 @@ const VoiceInterview = () => {
         setIsListening(true);
       }
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Chat error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get response.';
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to get response.',
+        description: errorMessage,
       });
       
       // Resume listening on error

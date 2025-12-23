@@ -37,7 +37,7 @@ serve(async (req) => {
     console.log(`Exporting data for user: ${userId}`);
 
     // Collect all user data
-    const exportData: Record<string, any> = {
+    const exportData: Record<string, unknown> = {
       exportedAt: new Date().toISOString(),
       user: {
         id: user.id,
@@ -106,15 +106,14 @@ serve(async (req) => {
     exportData.mockInterviewInvitesSent = sentInvites || [];
 
     // Calculate summary statistics
+    const interviewSessions = exportData.interviewSessions as { overall_score?: number | null }[] | undefined;
+    const sessionsWithScores = interviewSessions?.filter((s) => s.overall_score !== null) ?? [];
     exportData.summary = {
-      totalSessions: exportData.interviewSessions?.length || 0,
-      totalResponses: exportData.interviewResponses?.length || 0,
-      totalInvitesSent: exportData.mockInterviewInvitesSent?.length || 0,
-      averageSessionScore: exportData.interviewSessions?.length > 0
-        ? exportData.interviewSessions
-            .filter((s: any) => s.overall_score !== null)
-            .reduce((sum: number, s: any) => sum + (s.overall_score || 0), 0) / 
-          exportData.interviewSessions.filter((s: any) => s.overall_score !== null).length || 0
+      totalSessions: (exportData.interviewSessions as unknown[])?.length || 0,
+      totalResponses: (exportData.interviewResponses as unknown[])?.length || 0,
+      totalInvitesSent: (exportData.mockInterviewInvitesSent as unknown[])?.length || 0,
+      averageSessionScore: sessionsWithScores.length > 0
+        ? sessionsWithScores.reduce((sum: number, s) => sum + (s.overall_score || 0), 0) / sessionsWithScores.length
         : 0,
     };
 
@@ -131,10 +130,11 @@ serve(async (req) => {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error exporting data:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },

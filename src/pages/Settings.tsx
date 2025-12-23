@@ -199,11 +199,12 @@ const Settings = () => {
         title: 'Avatar updated',
         description: 'Your profile photo has been updated.',
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error uploading avatar:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload avatar. Please try again.';
       toast({
         title: 'Upload failed',
-        description: error.message || 'Failed to upload avatar. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -315,10 +316,11 @@ const Settings = () => {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to change password.';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to change password.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -343,10 +345,11 @@ const Settings = () => {
         title: 'Verification email sent',
         description: 'Please check your email for the verification code.',
       });
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send verification email.';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to send verification email.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -390,11 +393,12 @@ const Settings = () => {
         title: 'Data exported',
         description: 'Your data has been downloaded successfully.',
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error exporting data:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to export data. Please try again.';
       toast({
         title: 'Export failed',
-        description: error.message || 'Failed to export data. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -422,10 +426,11 @@ const Settings = () => {
         title: 'Email verified!',
         description: 'Your email has been successfully verified.',
       });
-    } catch (error: any) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Invalid or expired code. Please try again.';
       toast({
         title: 'Verification failed',
-        description: error.message || 'Invalid or expired code. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -465,11 +470,12 @@ const Settings = () => {
 
       // Sign out and redirect
       await signOut();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting account:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete account. Please try again.';
       toast({
         title: 'Error',
-        description: error.message || 'Failed to delete account. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
