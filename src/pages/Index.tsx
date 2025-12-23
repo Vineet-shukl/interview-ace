@@ -1,18 +1,18 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Sparkles, Play, ArrowRight, Mic, Video, BookOpen, BarChart3, Shield, Zap } from 'lucide-react';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Sparkles, Play, ArrowRight, Mic, Video, BookOpen, BarChart3, Shield, Zap } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
 
   const features = [
-    { icon: BookOpen, title: 'Question Library', description: 'Curated questions by role & industry', color: 'cyan' },
-    { icon: Mic, title: 'Practice Mode', description: 'Record and review your responses', color: 'purple' },
-    { icon: Video, title: 'AI Voice Interview', description: 'Realistic stress interviews with AI', color: 'magenta' },
-    { icon: BarChart3, title: 'Performance Tracking', description: 'Track progress over time', color: 'green' },
-    { icon: Shield, title: 'Cheating Detection', description: 'MediaPipe-powered monitoring', color: 'orange' },
-    { icon: Zap, title: 'Body Language Coach', description: 'Real-time posture feedback', color: 'blue' },
+    { icon: BookOpen, title: "Question Library", description: "Curated questions by role & industry", color: "cyan" },
+    { icon: Mic, title: "Practice Mode", description: "Record and review your responses", color: "purple" },
+    { icon: Video, title: "AI Voice Interview", description: "Realistic stress interviews with AI", color: "magenta" },
+    { icon: BarChart3, title: "Performance Tracking", description: "Track progress over time", color: "green" },
+    { icon: Shield, title: "Cheating Detection", description: "MediaPipe-powered monitoring", color: "orange" },
+    { icon: Zap, title: "Body Language Coach", description: "Real-time posture feedback", color: "blue" },
   ];
 
   return (
@@ -31,7 +31,7 @@ const Index = () => {
           </div>
           <span className="text-xl font-bold text-gradient">InterVue</span>
         </div>
-        <Button variant="glass" onClick={() => navigate('/auth')}>
+        <Button variant="glass" onClick={() => navigate("/auth")}>
           Sign In
         </Button>
       </header>
@@ -45,16 +45,14 @@ const Index = () => {
             <span className="text-gradient">Interview</span>
           </h1>
           <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            AI-powered interview preparation with real-time feedback, body language analysis, and stress interview simulation.
+            AI-powered interview preparation with real-time feedback, body language analysis, and stress interview
+            simulation.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="hero" size="xl" onClick={() => navigate('/auth')}>
+            <Button variant="hero" size="xl" onClick={() => navigate("/auth")}>
               <Play className="w-5 h-5" />
               Get Started Free
               <ArrowRight className="w-5 h-5" />
-            </Button>
-            <Button variant="glass" size="xl" onClick={() => navigate('/auth')}>
-              Try Demo
             </Button>
           </div>
         </div>
