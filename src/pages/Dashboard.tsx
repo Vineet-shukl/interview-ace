@@ -460,7 +460,7 @@ const Dashboard = () => {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-foreground">Recent Activity</h2>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/performance')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/activity')}>
             View All
             <ChevronRight className="w-4 h-4" />
           </Button>

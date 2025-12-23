@@ -12,6 +12,7 @@ import Practice from "./pages/Practice";
 import VoiceInterview from "./pages/VoiceInterview";
 import MockSessions from "./pages/MockSessions";
 import Performance from "./pages/Performance";
+import ActivityHistory from "./pages/ActivityHistory";
 import Settings from "./pages/Settings";
 import Onboarding from "./pages/Onboarding";
 import DashboardLayout from "./components/layout/DashboardLayout";
@@ -37,6 +38,7 @@ const App = () => (
               <Route path="/voice-interview" element={<VoiceInterview />} />
               <Route path="/mock-sessions" element={<MockSessions />} />
               <Route path="/performance" element={<Performance />} />
+              <Route path="/activity" element={<ActivityHistory />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
