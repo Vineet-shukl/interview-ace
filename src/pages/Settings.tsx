@@ -52,6 +52,7 @@ const Settings = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences>({
     emailNotifications: true,
@@ -72,31 +73,50 @@ const Settings = () => {
   const [sendingOtp, setSendingOtp] = useState(false);
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       if (!user) return;
 
       try {
         // Check email verification status
         setIsEmailVerified(user.email_confirmed_at !== null);
 
-        const { data, error } = await supabase
+        // Fetch profile
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error fetching profile:', error);
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
         }
 
-        if (data) {
-          setProfile(data);
+        if (profileData) {
+          setProfile(profileData);
         }
 
-        // Load preferences from localStorage
-        const savedPrefs = localStorage.getItem(`preferences_${user.id}`);
-        if (savedPrefs) {
-          setPreferences(JSON.parse(savedPrefs));
+        // Fetch preferences from database
+        const { data: prefsData, error: prefsError } = await supabase
+          .from('user_preferences')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (prefsError && prefsError.code !== 'PGRST116') {
+          console.error('Error fetching preferences:', prefsError);
+        }
+
+        if (prefsData) {
+          setPreferences({
+            emailNotifications: prefsData.email_notifications,
+            practiceReminders: prefsData.practice_reminders,
+            weeklyDigest: prefsData.weekly_digest,
+            feedbackAlerts: prefsData.feedback_alerts,
+            defaultDifficulty: prefsData.default_difficulty as 'easy' | 'medium' | 'hard',
+            sessionDuration: prefsData.session_duration,
+            autoRecordSessions: prefsData.auto_record_sessions,
+            showCheatingAlerts: prefsData.show_cheating_alerts,
+          });
         }
       } catch (error) {
         console.error('Error:', error);
@@ -105,7 +125,7 @@ const Settings = () => {
       }
     };
 
-    fetchProfile();
+    fetchData();
   }, [user]);
 
   const handleProfileUpdate = async () => {
@@ -140,14 +160,43 @@ const Settings = () => {
     }
   };
 
-  const handlePreferencesUpdate = () => {
+  const handlePreferencesUpdate = async () => {
     if (!user) return;
 
-    localStorage.setItem(`preferences_${user.id}`, JSON.stringify(preferences));
-    toast({
-      title: 'Preferences saved',
-      description: 'Your preferences have been updated.',
-    });
+    setSavingPreferences(true);
+    try {
+      const prefsData = {
+        user_id: user.id,
+        email_notifications: preferences.emailNotifications,
+        practice_reminders: preferences.practiceReminders,
+        weekly_digest: preferences.weeklyDigest,
+        feedback_alerts: preferences.feedbackAlerts,
+        default_difficulty: preferences.defaultDifficulty,
+        session_duration: preferences.sessionDuration,
+        auto_record_sessions: preferences.autoRecordSessions,
+        show_cheating_alerts: preferences.showCheatingAlerts,
+      };
+
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert(prefsData, { onConflict: 'user_id' });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Preferences saved',
+        description: 'Your preferences have been synced to your account.',
+      });
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save preferences. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingPreferences(false);
+    }
   };
 
   const handleSendVerificationOtp = async () => {
@@ -416,9 +465,9 @@ const Settings = () => {
                 </div>
               </div>
 
-              <Button onClick={handlePreferencesUpdate}>
-                <Save className="w-4 h-4" />
-                Save Preferences
+              <Button onClick={handlePreferencesUpdate} disabled={savingPreferences}>
+                {savingPreferences ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {savingPreferences ? 'Saving...' : 'Save Preferences'}
               </Button>
             </CardContent>
           </Card>
@@ -520,9 +569,9 @@ const Settings = () => {
                 </div>
               </div>
 
-              <Button onClick={handlePreferencesUpdate}>
-                <Save className="w-4 h-4" />
-                Save Settings
+              <Button onClick={handlePreferencesUpdate} disabled={savingPreferences}>
+                {savingPreferences ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {savingPreferences ? 'Saving...' : 'Save Settings'}
               </Button>
             </CardContent>
           </Card>
