@@ -197,10 +197,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInWithGoogle = async () => {
+    // Use VITE_SITE_URL for production, fallback to current origin for development
+    const baseUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/dashboard`
+        redirectTo: `${baseUrl}/dashboard`
       }
     });
     return { error: error as Error | null };
