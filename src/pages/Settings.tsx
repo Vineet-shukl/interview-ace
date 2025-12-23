@@ -28,6 +28,7 @@ import {
   AlertCircle,
   Loader2,
   Upload,
+  Download,
 } from 'lucide-react';
 
 interface Profile {
@@ -86,6 +87,7 @@ const Settings = () => {
 
   // Account deletion state
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -349,6 +351,54 @@ const Settings = () => {
       });
     } finally {
       setSendingOtp(false);
+    }
+  };
+
+  const handleExportData = async () => {
+    if (!user) return;
+
+    setExportingData(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No valid session');
+      }
+
+      const response = await supabase.functions.invoke('export-data', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to export data');
+      }
+
+      // Create and download the JSON file
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `intervue-data-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Data exported',
+        description: 'Your data has been downloaded successfully.',
+      });
+    } catch (error: any) {
+      console.error('Error exporting data:', error);
+      toast({
+        title: 'Export failed',
+        description: error.message || 'Failed to export data. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExportingData(false);
     }
   };
 
@@ -946,6 +996,28 @@ const Settings = () => {
                 <Button variant="outline" onClick={handleSignOut} className="w-full sm:w-auto">
                   <LogOut className="w-4 h-4" />
                   Sign Out
+                </Button>
+              </div>
+
+              <Separator className="bg-border/50" />
+
+              <div className="space-y-4">
+                <h3 className="font-medium text-foreground">Your Data</h3>
+                <p className="text-sm text-muted-foreground">
+                  Download a copy of all your data including profile, preferences, interview sessions, and feedback.
+                </p>
+                <Button 
+                  variant="outline" 
+                  onClick={handleExportData} 
+                  disabled={exportingData}
+                  className="gap-2"
+                >
+                  {exportingData ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  {exportingData ? 'Exporting...' : 'Export My Data'}
                 </Button>
               </div>
 
