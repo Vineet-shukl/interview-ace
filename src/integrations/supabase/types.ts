@@ -308,6 +308,60 @@ export type Database = {
         }
         Relationships: []
       }
+      user_preferences: {
+        Row: {
+          auto_record_sessions: boolean
+          created_at: string
+          default_difficulty: string
+          email_notifications: boolean
+          feedback_alerts: boolean
+          id: string
+          practice_reminders: boolean
+          session_duration: number
+          show_cheating_alerts: boolean
+          speech_pitch: number | null
+          speech_rate: number | null
+          updated_at: string
+          user_id: string
+          voice_uri: string | null
+          weekly_digest: boolean
+        }
+        Insert: {
+          auto_record_sessions?: boolean
+          created_at?: string
+          default_difficulty?: string
+          email_notifications?: boolean
+          feedback_alerts?: boolean
+          id?: string
+          practice_reminders?: boolean
+          session_duration?: number
+          show_cheating_alerts?: boolean
+          speech_pitch?: number | null
+          speech_rate?: number | null
+          updated_at?: string
+          user_id: string
+          voice_uri?: string | null
+          weekly_digest?: boolean
+        }
+        Update: {
+          auto_record_sessions?: boolean
+          created_at?: string
+          default_difficulty?: string
+          email_notifications?: boolean
+          feedback_alerts?: boolean
+          id?: string
+          practice_reminders?: boolean
+          session_duration?: number
+          show_cheating_alerts?: boolean
+          speech_pitch?: number | null
+          speech_rate?: number | null
+          updated_at?: string
+          user_id?: string
+          voice_uri?: string | null
+          weekly_digest?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
