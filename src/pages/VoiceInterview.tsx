@@ -5,7 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useBodyLanguageAnalysis } from '@/hooks/useBodyLanguageAnalysis';
+import { useCheatingDetection } from '@/hooks/useCheatingDetection';
 import BodyLanguageCoach from '@/components/BodyLanguageCoach';
+import { CheatingAlert, CheatingAlertCompact } from '@/components/CheatingAlert';
 import {
   Mic,
   MicOff,
@@ -21,6 +23,7 @@ import {
   Eye,
   Clock,
   Activity,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -72,6 +75,36 @@ const VoiceInterview = () => {
     stopAnalysis: stopBodyAnalysis 
   } = useBodyLanguageAnalysis(videoRef.current);
 
+  // Cheating detection
+  const {
+    metrics: cheatingMetrics,
+    updateEyeContact,
+    updatePersonDetection,
+    resetMetrics: resetCheatingMetrics,
+  } = useCheatingDetection({
+    eyeContactThreshold: 40,
+    lookAwayDurationMs: 2000,
+    onViolation: (event) => {
+      // Show toast for violations
+      if (event.type === 'tab_switch') {
+        toast({
+          variant: 'destructive',
+          title: 'Tab Switch Detected',
+          description: 'Please stay on the interview tab.',
+        });
+      }
+    },
+  });
+
+  // Sync body language metrics with cheating detection
+  useEffect(() => {
+    if (isBodyAnalyzing) {
+      updateEyeContact(bodyMetrics.eyeContactScore);
+      // Simple person detection based on posture score (if 0, person not detected)
+      updatePersonDetection(bodyMetrics.postureScore > 20);
+    }
+  }, [isBodyAnalyzing, bodyMetrics.eyeContactScore, bodyMetrics.postureScore, updateEyeContact, updatePersonDetection]);
+
   // Initialize video stream and body language analysis
   useEffect(() => {
     if (isStarted && videoEnabled) {
@@ -102,7 +135,7 @@ const VoiceInterview = () => {
       }
       stopBodyAnalysis();
     };
-  }, [isStarted, videoEnabled, startBodyAnalysis, stopBodyAnalysis]);
+  }, [isStarted, videoEnabled, startBodyAnalysis, stopBodyAnalysis, toast]);
 
   // Duration timer
   useEffect(() => {
@@ -469,6 +502,8 @@ const VoiceInterview = () => {
               <span className="text-foreground font-mono">{bodyMetrics.overallScore}%</span>
             </div>
           )}
+          {/* Cheating Detection Indicator */}
+          <CheatingAlertCompact metrics={cheatingMetrics} />
         </div>
 
         <div className="flex items-center gap-2">
@@ -484,6 +519,19 @@ const VoiceInterview = () => {
               <span className="text-sm text-foreground">Listening</span>
             </div>
           )}
+          {/* Integrity Status */}
+          <div className={cn(
+            "glass rounded-xl px-4 py-2 flex items-center gap-2",
+            cheatingMetrics.suspicionLevel === 'high' && 'border-destructive/50',
+            cheatingMetrics.suspicionLevel === 'medium' && 'border-warning/50'
+          )}>
+            <Shield className={cn(
+              "w-4 h-4",
+              cheatingMetrics.suspicionLevel === 'low' ? 'text-neon-green' :
+              cheatingMetrics.suspicionLevel === 'medium' ? 'text-warning' : 'text-destructive'
+            )} />
+            <span className="text-sm text-foreground capitalize">{cheatingMetrics.suspicionLevel}</span>
+          </div>
         </div>
       </div>
 
@@ -524,11 +572,16 @@ const VoiceInterview = () => {
           )}
         </div>
 
-        {/* Body Language Coach Panel */}
-        <div className="lg:col-span-1 flex flex-col gap-4 min-h-0">
+        {/* Body Language & Cheating Detection Panel */}
+        <div className="lg:col-span-1 flex flex-col gap-4 min-h-0 overflow-y-auto">
           <BodyLanguageCoach 
             metrics={bodyMetrics} 
             isAnalyzing={isBodyAnalyzing} 
+            compact
+          />
+          <CheatingAlert 
+            metrics={cheatingMetrics}
+            showDetails={true}
           />
         </div>
 
