@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import BentoCard from '@/components/dashboard/BentoCard';
 import ProgressRing from '@/components/dashboard/ProgressRing';
+import GoalsEditor from '@/components/GoalsEditor';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -28,6 +29,7 @@ import {
   Brain,
   Code,
   AlertCircle,
+  Settings2,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -107,6 +109,7 @@ const Dashboard = () => {
     currentScore: 0,
   });
   const [recommendedQuestions, setRecommendedQuestions] = useState<any[]>([]);
+  const [goalsEditorOpen, setGoalsEditorOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -371,9 +374,9 @@ const Dashboard = () => {
             <h2 className="text-xl font-semibold text-foreground">
               Goal: {goalLabels[onboardingData.goal] || 'Interview Practice'}
             </h2>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
+            <Button variant="ghost" size="sm" onClick={() => setGoalsEditorOpen(true)}>
+              <Settings2 className="w-4 h-4" />
               Edit Goals
-              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -578,6 +581,19 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Goals Editor Dialog */}
+      {user && (
+        <GoalsEditor
+          open={goalsEditorOpen}
+          onOpenChange={setGoalsEditorOpen}
+          userId={user.id}
+          currentData={onboardingData}
+          onSave={(updatedData) => {
+            setOnboardingData(updatedData);
+          }}
+        />
+      )}
     </div>
   );
 };
