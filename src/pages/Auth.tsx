@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, Sparkles, ArrowRight, User, Mail, Lock, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Sparkles, ArrowRight, User, Mail, Lock, Loader2, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 
 const signUpSchema = z.object({
@@ -24,7 +25,10 @@ const signInSchema = z.object({
 });
 
 const Auth = () => {
+  const [searchParams] = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isResetPassword, setIsResetPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -36,6 +40,8 @@ const Auth = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const { signIn, signUp, signInWithGoogle, user } = useAuth();
@@ -43,7 +49,15 @@ const Auth = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (user) {
+    // Check if this is a password reset callback
+    const type = searchParams.get('type');
+    if (type === 'recovery') {
+      setIsResetPassword(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (user && !isResetPassword) {
       // Check if user has completed onboarding
       const onboardingData = localStorage.getItem(`onboarding_${user.id}`);
       if (onboardingData) {
@@ -52,7 +66,7 @@ const Auth = () => {
         navigate('/onboarding');
       }
     }
-  }, [user, navigate]);
+  }, [user, navigate, isResetPassword]);
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
@@ -73,6 +87,79 @@ const Auth = () => {
       });
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrors({});
+
+    if (!email) {
+      setErrors({ email: 'Email is required' });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?type=recovery`,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Reset email sent',
+        description: 'Check your email for a password reset link.',
+      });
+      setIsForgotPassword(false);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || 'Failed to send reset email.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrors({});
+
+    if (newPassword.length < 6) {
+      setErrors({ newPassword: 'Password must be at least 6 characters' });
+      setLoading(false);
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setErrors({ confirmNewPassword: "Passwords don't match" });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Password updated',
+        description: 'Your password has been successfully reset.',
+      });
+      setIsResetPassword(false);
+      navigate('/dashboard');
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || 'Failed to reset password.',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -163,6 +250,128 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  // Reset Password View
+  if (isResetPassword) {
+    return (
+      <div className="min-h-screen bg-background bg-holographic flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-soft" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-purple/10 rounded-full blur-3xl animate-pulse-soft animation-delay-500" />
+        </div>
+
+        <div className="w-full max-w-md relative z-10 animate-fade-in">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-neon-purple mb-4 shadow-glow-primary">
+              <Lock className="w-8 h-8 text-primary-foreground" />
+            </div>
+            <h1 className="text-3xl font-bold text-gradient mb-2">Reset Password</h1>
+            <p className="text-muted-foreground">Enter your new password</p>
+          </div>
+
+          <div className="glass rounded-3xl p-8 shadow-glass">
+            <form onSubmit={handleResetPassword} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/80">New Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="pl-12 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                {errors.newPassword && <p className="text-destructive text-sm">{errors.newPassword}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/80">Confirm New Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className="pl-12"
+                  />
+                </div>
+                {errors.confirmNewPassword && <p className="text-destructive text-sm">{errors.confirmNewPassword}</p>}
+              </div>
+
+              <Button type="submit" variant="hero" size="xl" className="w-full" disabled={loading}>
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Update Password'}
+              </Button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Forgot Password View
+  if (isForgotPassword) {
+    return (
+      <div className="min-h-screen bg-background bg-holographic flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-soft" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-purple/10 rounded-full blur-3xl animate-pulse-soft animation-delay-500" />
+        </div>
+
+        <div className="w-full max-w-md relative z-10 animate-fade-in">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-neon-purple mb-4 shadow-glow-primary">
+              <Mail className="w-8 h-8 text-primary-foreground" />
+            </div>
+            <h1 className="text-3xl font-bold text-gradient mb-2">Forgot Password?</h1>
+            <p className="text-muted-foreground">Enter your email to receive a reset link</p>
+          </div>
+
+          <div className="glass rounded-3xl p-8 shadow-glass">
+            <form onSubmit={handleForgotPassword} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground/80">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-12"
+                  />
+                </div>
+                {errors.email && <p className="text-destructive text-sm">{errors.email}</p>}
+              </div>
+
+              <Button type="submit" variant="hero" size="xl" className="w-full" disabled={loading}>
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Reset Link'}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setIsForgotPassword(false)}
+                className="text-primary hover:underline text-sm font-medium inline-flex items-center gap-1"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Sign In
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background bg-holographic flex items-center justify-center p-4 relative overflow-hidden">
@@ -282,9 +491,20 @@ const Auth = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground/80">
-                {isLogin ? 'Password' : 'Set a secure password'}
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-foreground/80">
+                  {isLogin ? 'Password' : 'Set a secure password'}
+                </label>
+                {isLogin && (
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotPassword(true)}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input

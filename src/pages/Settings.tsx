@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   User,
@@ -25,6 +26,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Upload,
 } from 'lucide-react';
 
 interface Profile {
@@ -50,9 +52,11 @@ interface UserPreferences {
 const Settings = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences>({
     emailNotifications: true,
@@ -71,6 +75,13 @@ const Settings = () => {
   const [otp, setOtp] = useState('');
   const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
+
+  // Password change state
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -127,6 +138,72 @@ const Settings = () => {
 
     fetchData();
   }, [user]);
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please upload an image file.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Please upload an image smaller than 5MB.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/avatar.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      // Update profile with avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      setProfile((prev) => prev ? { ...prev, avatar_url: publicUrl } : null);
+      toast({
+        title: 'Avatar updated',
+        description: 'Your profile photo has been updated.',
+      });
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      toast({
+        title: 'Upload failed',
+        description: error.message || 'Failed to upload avatar. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleProfileUpdate = async () => {
     if (!user || !profile) return;
@@ -196,6 +273,50 @@ const Settings = () => {
       });
     } finally {
       setSavingPreferences(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast({
+        title: 'Password too short',
+        description: 'Password must be at least 6 characters.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      toast({
+        title: 'Passwords do not match',
+        description: 'Please make sure your new passwords match.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Password updated',
+        description: 'Your password has been changed successfully.',
+      });
+      setShowPasswordDialog(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to change password.',
+        variant: 'destructive',
+      });
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -272,6 +393,53 @@ const Settings = () => {
 
   return (
     <div className="space-y-8 animate-fade-in max-w-4xl">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleAvatarUpload}
+        className="hidden"
+      />
+
+      {/* Password Change Dialog */}
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>Enter your new password below.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>New Password</Label>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Confirm New Password</Label>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleChangePassword} disabled={changingPassword}>
+              {changingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Update Password'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">Settings</h1>
@@ -316,17 +484,33 @@ const Settings = () => {
               {/* Avatar Section */}
               <div className="flex items-center gap-6">
                 <div className="relative">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-neon-magenta flex items-center justify-center text-2xl font-bold text-primary-foreground">
-                    {profile?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
-                  </div>
-                  <button className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-background border border-border flex items-center justify-center hover:bg-muted transition-colors">
-                    <Camera className="w-4 h-4 text-muted-foreground" />
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="Profile"
+                      className="w-20 h-20 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-neon-magenta flex items-center justify-center text-2xl font-bold text-primary-foreground">
+                      {profile?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-background border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    {uploadingAvatar ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    ) : (
+                      <Camera className="w-4 h-4 text-muted-foreground" />
+                    )}
                   </button>
                 </div>
                 <div>
                   <p className="font-medium text-foreground">Profile Photo</p>
                   <p className="text-sm text-muted-foreground">
-                    Click to upload a new photo
+                    Click to upload a new photo (max 5MB)
                   </p>
                 </div>
               </div>
@@ -597,11 +781,11 @@ const Settings = () => {
                     <div>
                       <p className="font-medium text-foreground">Password</p>
                       <p className="text-sm text-muted-foreground">
-                        Last changed: Never
+                        Change your account password
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={() => setShowPasswordDialog(true)}>
                     Change Password
                   </Button>
                 </div>
