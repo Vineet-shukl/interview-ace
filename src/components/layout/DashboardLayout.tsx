@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from './Sidebar';
+import NotificationCenter from '@/components/NotificationCenter';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
@@ -35,13 +36,25 @@ const DashboardLayout: React.FC = () => {
     <div className="min-h-screen bg-background bg-holographic">
       <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
       
+      {/* Top notification bar */}
+      <div
+        className={cn(
+          'fixed top-4 right-6 z-40 transition-all duration-300',
+          sidebarCollapsed ? 'left-24' : 'left-68'
+        )}
+      >
+        <div className="flex justify-end">
+          <NotificationCenter />
+        </div>
+      </div>
+      
       <main
         className={cn(
           'min-h-screen transition-all duration-300 ease-in-out',
           sidebarCollapsed ? 'ml-20' : 'ml-64'
         )}
       >
-        <div className="p-6 lg:p-8">
+        <div className="p-6 lg:p-8 pt-16">
           <Outlet />
         </div>
       </main>
