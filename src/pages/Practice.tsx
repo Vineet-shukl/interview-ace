@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { QuizMode } from '@/components/QuizMode';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Play,
   Pause,
@@ -19,6 +21,8 @@ import {
   Sparkles,
   Loader2,
   Filter,
+  GraduationCap,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -40,6 +44,7 @@ interface Category {
 
 type TimerSetting = 30 | 60 | 90 | 120;
 type DifficultyFilter = 'all' | 'easy' | 'medium' | 'hard';
+type PracticeMode = 'flashcard' | 'quiz';
 
 const Practice = () => {
   const { toast } = useToast();
@@ -60,6 +65,7 @@ const Practice = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>('flashcard');
   
   // Stats
   const [cardsReviewed, setCardsReviewed] = useState(0);
@@ -256,41 +262,141 @@ const Practice = () => {
             Practice Mode
           </h1>
           <p className="text-muted-foreground mt-1">
-            Flashcard practice with timed responses
+            {practiceMode === 'flashcard' ? 'Flashcard practice with timed responses' : 'Quiz mode with response tracking'}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Stats */}
-          <div className="glass rounded-xl px-4 py-2 flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-neon-green" />
-              <span className="font-mono text-foreground">{correctCount}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <XCircle className="w-4 h-4 text-destructive" />
-              <span className="font-mono text-foreground">{incorrectCount}</span>
-            </div>
-          </div>
+          {/* Mode Toggle */}
+          <Tabs value={practiceMode} onValueChange={(v) => setPracticeMode(v as PracticeMode)}>
+            <TabsList className="glass">
+              <TabsTrigger value="flashcard" className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4" />
+                Flashcards
+              </TabsTrigger>
+              <TabsTrigger value="quiz" className="flex items-center gap-2">
+                <GraduationCap className="w-4 h-4" />
+                Quiz
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-          <Button variant="glass" onClick={() => setShowFilters(!showFilters)}>
-            <Filter className="w-4 h-4" />
-            Filters
-          </Button>
+          {practiceMode === 'flashcard' && (
+            <>
+              {/* Stats */}
+              <div className="glass rounded-xl px-4 py-2 flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-neon-green" />
+                  <span className="font-mono text-foreground">{correctCount}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-destructive" />
+                  <span className="font-mono text-foreground">{incorrectCount}</span>
+                </div>
+              </div>
 
-          <Button variant="glass" onClick={shuffleCards}>
-            <Shuffle className="w-4 h-4" />
-            Shuffle
-          </Button>
+              <Button variant="glass" onClick={() => setShowFilters(!showFilters)}>
+                <Filter className="w-4 h-4" />
+                Filters
+              </Button>
 
-          <Button variant="glass" onClick={resetPractice}>
-            <RotateCcw className="w-4 h-4" />
-            Reset
-          </Button>
+              <Button variant="glass" onClick={shuffleCards}>
+                <Shuffle className="w-4 h-4" />
+                Shuffle
+              </Button>
+
+              <Button variant="glass" onClick={resetPractice}>
+                <RotateCcw className="w-4 h-4" />
+                Reset
+              </Button>
+            </>
+          )}
+
+          {practiceMode === 'quiz' && (
+            <Button variant="glass" onClick={() => setShowFilters(!showFilters)}>
+              <Filter className="w-4 h-4" />
+              Filters
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Filters Panel */}
+      {/* Filters Panel - shared between modes */}
+      {showFilters && practiceMode === 'quiz' && (
+        <div className="glass rounded-xl p-4 mb-4 animate-fade-in">
+          <div className="flex flex-wrap gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                Category
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedCategory(null)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-sm transition-all',
+                    !selectedCategory
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-secondary'
+                  )}
+                >
+                  All
+                </button>
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-sm transition-all',
+                      selectedCategory === cat.id
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-secondary'
+                    )}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                Difficulty
+              </label>
+              <div className="flex gap-2">
+                {(['all', 'easy', 'medium', 'hard'] as const).map((diff) => (
+                  <button
+                    key={diff}
+                    onClick={() => setDifficultyFilter(diff)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-sm capitalize transition-all',
+                      difficultyFilter === diff
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-secondary'
+                    )}
+                  >
+                    {diff}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quiz Mode */}
+      {practiceMode === 'quiz' && (
+        <div className="flex-1">
+          <QuizMode
+            questions={questions}
+            categories={categories}
+            selectedCategory={selectedCategory}
+            difficultyFilter={difficultyFilter}
+          />
+        </div>
+      )}
+
+      {/* Flashcard Mode */}
+      {practiceMode === 'flashcard' && (
+        <>
       {showFilters && (
         <div className="glass rounded-xl p-4 mb-4 animate-fade-in">
           <div className="flex flex-wrap gap-4">
@@ -577,6 +683,8 @@ const Practice = () => {
             )}
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
