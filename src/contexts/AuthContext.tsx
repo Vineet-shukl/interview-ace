@@ -14,6 +14,125 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Device detection utilities
+const generateFingerprint = (): string => {
+  const fingerprint = [
+    navigator.userAgent,
+    navigator.language,
+    screen.width + 'x' + screen.height,
+    new Date().getTimezoneOffset(),
+  ].join('|');
+  
+  let hash = 0;
+  for (let i = 0; i < fingerprint.length; i++) {
+    const char = fingerprint.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16);
+};
+
+const getBrowserInfo = (): string => {
+  const ua = navigator.userAgent;
+  if (ua.includes('Firefox')) return 'Firefox';
+  if (ua.includes('Edg')) return 'Edge';
+  if (ua.includes('Chrome')) return 'Chrome';
+  if (ua.includes('Safari')) return 'Safari';
+  return 'Unknown Browser';
+};
+
+const getOSInfo = (): string => {
+  const ua = navigator.userAgent;
+  if (ua.includes('Windows')) return 'Windows';
+  if (ua.includes('Mac')) return 'macOS';
+  if (ua.includes('Linux')) return 'Linux';
+  if (ua.includes('Android')) return 'Android';
+  if (ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+  return 'Unknown OS';
+};
+
+const getDeviceName = (): string => {
+  const ua = navigator.userAgent;
+  if (ua.includes('Mobile')) return 'Mobile Device';
+  if (ua.includes('Tablet') || ua.includes('iPad')) return 'Tablet';
+  return 'Desktop';
+};
+
+const getIPAddress = async (): Promise<string> => {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+    return data.ip;
+  } catch {
+    return 'Unknown';
+  }
+};
+
+const checkAndRegisterDevice = async (userId: string, userEmail: string, userName: string) => {
+  try {
+    const deviceFingerprint = generateFingerprint();
+    const browser = getBrowserInfo();
+    const os = getOSInfo();
+    const deviceName = getDeviceName();
+    const ipAddress = await getIPAddress();
+
+    // Check if device exists
+    const { data: existingDevice, error: fetchError } = await supabase
+      .from('user_devices')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('device_fingerprint', deviceFingerprint)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Error checking device:', fetchError);
+      return;
+    }
+
+    if (existingDevice) {
+      // Update last login time
+      await supabase
+        .from('user_devices')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('id', existingDevice.id);
+      return;
+    }
+
+    // New device - register it
+    const { error: insertError } = await supabase
+      .from('user_devices')
+      .insert({
+        user_id: userId,
+        device_fingerprint: deviceFingerprint,
+        device_name: deviceName,
+        browser,
+        os,
+        ip_address: ipAddress,
+      });
+
+    if (insertError) {
+      console.error('Error registering device:', insertError);
+      return;
+    }
+
+    // Send notification email for new device
+    await supabase.functions.invoke('login-notification', {
+      body: {
+        userEmail,
+        userName,
+        deviceName,
+        browser,
+        os,
+        ipAddress,
+        loginTime: new Date().toLocaleString(),
+      },
+    });
+    console.log('Login notification sent for new device');
+  } catch (error) {
+    console.error('Error in device detection:', error);
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -26,6 +145,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Check for new device on sign in
+        if (event === 'SIGNED_IN' && session?.user) {
+          const userName = session.user.user_metadata?.full_name || 
+                          session.user.user_metadata?.name || 
+                          session.user.email?.split('@')[0] || '';
+          
+          // Use setTimeout to avoid blocking auth state change
+          setTimeout(() => {
+            checkAndRegisterDevice(
+              session.user.id,
+              session.user.email || '',
+              userName
+            );
+          }, 0);
+        }
       }
     );
 
