@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
 import {
   User,
@@ -21,6 +22,9 @@ import {
   Lock,
   Trash2,
   LogOut,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 
 interface Profile {
@@ -60,11 +64,21 @@ const Settings = () => {
     showCheatingAlerts: true,
   });
 
+  // Email verification state
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) return;
 
       try {
+        // Check email verification status
+        setIsEmailVerified(user.email_confirmed_at !== null);
+
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
@@ -134,6 +148,65 @@ const Settings = () => {
       title: 'Preferences saved',
       description: 'Your preferences have been updated.',
     });
+  };
+
+  const handleSendVerificationOtp = async () => {
+    if (!user?.email) return;
+
+    setSendingOtp(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email,
+      });
+
+      if (error) throw error;
+
+      setShowOtpInput(true);
+      toast({
+        title: 'Verification email sent',
+        description: 'Please check your email for the verification code.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to send verification email.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!user?.email || otp.length !== 6) return;
+
+    setVerifyingEmail(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: user.email,
+        token: otp,
+        type: 'email',
+      });
+
+      if (error) throw error;
+
+      setIsEmailVerified(true);
+      setShowOtpInput(false);
+      setOtp('');
+      toast({
+        title: 'Email verified!',
+        description: 'Your email has been successfully verified.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Verification failed',
+        description: error.message || 'Invalid or expired code. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setVerifyingEmail(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -484,17 +557,108 @@ const Settings = () => {
                   </Button>
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium text-foreground">Email</p>
-                      <p className="text-sm text-muted-foreground">{user?.email}</p>
+                {/* Email Verification Section */}
+                <div className="p-4 rounded-lg bg-muted/50 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Mail className="w-5 h-5 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-foreground">Email</p>
+                        <p className="text-sm text-muted-foreground">{user?.email}</p>
+                      </div>
                     </div>
+                    {isEmailVerified ? (
+                      <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-success/20 text-success">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Verified
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-warning/20 text-warning">
+                        <AlertCircle className="w-3 h-3" />
+                        Not Verified
+                      </span>
+                    )}
                   </div>
-                  <span className="text-xs px-2 py-1 rounded-full bg-success/20 text-success">
-                    Verified
-                  </span>
+
+                  {!isEmailVerified && (
+                    <div className="space-y-4 pt-2">
+                      {!showOtpInput ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSendVerificationOtp}
+                          disabled={sendingOtp}
+                        >
+                          {sendingOtp ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            'Verify Email'
+                          )}
+                        </Button>
+                      ) : (
+                        <div className="space-y-4">
+                          <div>
+                            <Label className="text-sm text-muted-foreground mb-2 block">
+                              Enter the 6-digit code sent to your email
+                            </Label>
+                            <InputOTP
+                              maxLength={6}
+                              value={otp}
+                              onChange={(value) => setOtp(value)}
+                            >
+                              <InputOTPGroup>
+                                <InputOTPSlot index={0} />
+                                <InputOTPSlot index={1} />
+                                <InputOTPSlot index={2} />
+                                <InputOTPSlot index={3} />
+                                <InputOTPSlot index={4} />
+                                <InputOTPSlot index={5} />
+                              </InputOTPGroup>
+                            </InputOTP>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={handleVerifyOtp}
+                              disabled={verifyingEmail || otp.length !== 6}
+                            >
+                              {verifyingEmail ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Verifying...
+                                </>
+                              ) : (
+                                'Verify Code'
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setShowOtpInput(false);
+                                setOtp('');
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Didn't receive the code?{' '}
+                            <button
+                              onClick={handleSendVerificationOtp}
+                              disabled={sendingOtp}
+                              className="text-primary hover:underline"
+                            >
+                              Resend
+                            </button>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
