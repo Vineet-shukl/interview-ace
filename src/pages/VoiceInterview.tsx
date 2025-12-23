@@ -299,41 +299,51 @@ const VoiceInterview = () => {
     }
   };
 
-  // Play audio response
+  // Play audio response using browser's built-in Web Speech API (free)
   const playAudioResponse = async (text: string) => {
     setIsSpeaking(true);
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ text }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('TTS failed');
+      // Check if speech synthesis is available
+      if (!('speechSynthesis' in window)) {
+        console.warn('Speech synthesis not supported');
+        setIsSpeaking(false);
+        return;
       }
 
-      const data = await response.json();
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
       
-      if (data.audioContent) {
-        const audioUrl = `data:audio/mpeg;base64,${data.audioContent}`;
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-        
-        audio.onended = () => {
-          setIsSpeaking(false);
-        };
-        
-        await audio.play();
+      // Get available voices and select a good English voice
+      const voices = window.speechSynthesis.getVoices();
+      const englishVoice = voices.find(
+        voice => voice.lang.startsWith('en') && voice.name.includes('Google')
+      ) || voices.find(
+        voice => voice.lang.startsWith('en-US')
+      ) || voices.find(
+        voice => voice.lang.startsWith('en')
+      );
+      
+      if (englishVoice) {
+        utterance.voice = englishVoice;
       }
+      
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
+      utterance.onend = () => {
+        setIsSpeaking(false);
+      };
+
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+        setIsSpeaking(false);
+      };
+
+      window.speechSynthesis.speak(utterance);
 
     } catch (error) {
       console.error('TTS error:', error);
