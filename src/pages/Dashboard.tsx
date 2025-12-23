@@ -468,52 +468,62 @@ const Dashboard = () => {
 
         {recentSessions.length > 0 ? (
           <div className="grid gap-3">
-            {recentSessions.map((session) => (
-              <div
-                key={session.id}
-                className="glass rounded-xl p-4 flex items-center justify-between hover:bg-card/80 transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    {session.session_type === 'voice' ? (
-                      <Video className="w-5 h-5 text-neon-magenta" />
-                    ) : session.session_type === 'mock' ? (
-                      <Users className="w-5 h-5 text-neon-purple" />
-                    ) : (
-                      <Mic className="w-5 h-5 text-neon-cyan" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground capitalize">
-                      {session.session_type} Session
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(session.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  {session.overall_score && (
-                    <div className="flex items-center gap-1">
-                      <Award className="w-4 h-4 text-accent" />
-                      <span className="font-medium">{session.overall_score}/10</span>
+            {recentSessions.map((session) => {
+              const sessionPath = session.session_type === 'voice' 
+                ? '/voice-interview' 
+                : session.session_type === 'mock' 
+                ? '/mock-sessions' 
+                : '/practice';
+              
+              return (
+                <div
+                  key={session.id}
+                  onClick={() => navigate(sessionPath)}
+                  className="glass rounded-xl p-4 flex items-center justify-between hover:bg-card/80 transition-colors cursor-pointer group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      {session.session_type === 'voice' ? (
+                        <Video className="w-5 h-5 text-neon-magenta" />
+                      ) : session.session_type === 'mock' ? (
+                        <Users className="w-5 h-5 text-neon-purple" />
+                      ) : (
+                        <Mic className="w-5 h-5 text-neon-cyan" />
+                      )}
                     </div>
-                  )}
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      session.status === 'completed'
-                        ? 'bg-success/20 text-success'
-                        : session.status === 'in_progress'
-                        ? 'bg-warning/20 text-warning'
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {session.status}
-                  </span>
+                    <div>
+                      <p className="font-medium text-foreground capitalize">
+                        {session.session_type} Session
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(session.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    {session.overall_score && (
+                      <div className="flex items-center gap-1">
+                        <Award className="w-4 h-4 text-accent" />
+                        <span className="font-medium">{session.overall_score}/10</span>
+                      </div>
+                    )}
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        session.status === 'completed'
+                          ? 'bg-success/20 text-success'
+                          : session.status === 'in_progress'
+                          ? 'bg-warning/20 text-warning'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {session.status}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="glass rounded-2xl p-12 text-center">
