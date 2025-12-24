@@ -34,6 +34,8 @@ const Auth = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
+  const [isOAuthCallback, setIsOAuthCallback] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   
   // Form fields
   const [fullName, setFullName] = useState('');
@@ -45,9 +47,17 @@ const Auth = () => {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   
-  const { signIn, signUp, signInWithGoogle, user } = useAuth();
+  const { signIn, signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Detect OAuth callback (returning from Google with tokens)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('access_token') || hash.includes('refresh_token')) {
+      setIsOAuthCallback(true);
+    }
+  }, []);
 
   // Check for OAuth errors in URL
   useEffect(() => {
@@ -92,6 +102,7 @@ const Auth = () => {
 
   useEffect(() => {
     if (user && !isResetPassword) {
+      setIsRedirecting(true);
       // Check if user has completed onboarding
       const onboardingData = localStorage.getItem(`onboarding_${user.id}`);
       if (onboardingData) {
@@ -286,6 +297,38 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  // OAuth Callback Loading Screen
+  if (isOAuthCallback || isRedirecting || (authLoading && window.location.hash.includes('access_token'))) {
+    return (
+      <div className="min-h-screen bg-background bg-holographic flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-soft" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-purple/10 rounded-full blur-3xl animate-pulse-soft animation-delay-500" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-neon-cyan/5 rounded-full blur-3xl" />
+        </div>
+
+        <div className="w-full max-w-md relative z-10 animate-fade-in text-center">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-neon-purple mb-6 shadow-glow-primary">
+            <Loader2 className="w-10 h-10 text-primary-foreground animate-spin" />
+          </div>
+          <h1 className="text-2xl font-bold text-gradient mb-3">
+            {isRedirecting ? 'Welcome back!' : 'Signing you in...'}
+          </h1>
+          <p className="text-muted-foreground">
+            {isRedirecting ? 'Redirecting to your dashboard...' : 'Please wait while we authenticate your account'}
+          </p>
+          <div className="mt-8 flex justify-center">
+            <div className="flex space-x-2">
+              <div className="w-3 h-3 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-3 h-3 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-3 h-3 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Reset Password View
   if (isResetPassword) {
